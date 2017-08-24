@@ -18,8 +18,8 @@ import concurrent.futures
 
 # Weights used for calculating statistical scores
 # for balancing load. Default to 50/50.
-CPU_WEIGHT = 0.15
-MEM_WEIGHT = 0.85
+CPU_WEIGHT = 0.75
+MEM_WEIGHT = 0.15
 
 class ProxmoxBalancer:
 
@@ -107,8 +107,6 @@ class ProxmoxBalancer:
 		max_node = max(node_scores, key=node_scores.get)
 		min_node = min(node_scores, key=node_scores.get)
 
-		pp(node_scores)
-
 		return { "scores" : node_scores, "max" : max_node, "min" : min_node}
 
 	def get_vm_stats(self, node, vmid):
@@ -161,7 +159,7 @@ class ProxmoxBalancer:
 
 		# Get the list of VM IDs on this host
 		vms = self.proxmox_client.getNodeVirtualIndex(node)
-		vm_ids = [x["vmid"] for x in vms["data"]]
+		vm_ids = [x["vmid"] for x in vms["data"] if x["status"] == "running"]
 
 		with concurrent.futures.ThreadPoolExecutor(max_workers=len(vm_ids)) as executor:
 			future_vm_stats = {executor.submit(self.get_vm_stats, node, vmid): vmid for vmid in vm_ids}
@@ -220,15 +218,21 @@ class ProxmoxBalancer:
 		with concurrent.futures.ThreadPoolExecutor(max_workers=len(vms)) as executor:
 			future_vm_migrations = {executor.submit(self.migrate_vm, vmid, from_node, to_node): vmid for vmid in vms}
 
+			results = []
+
 			for future in concurrent.futures.as_completed(future_vm_migrations):
 				try:
 					result = future.result()
+					results.append(result)
 
-					if not result:
-						return False
 				except Exception as exc:
 					print('VM Failed to move! %s', exc)
 
+			print(results)
+			for r in results:
+				if not r:
+					return False
+		
 		return True
 
 
