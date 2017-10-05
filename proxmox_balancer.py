@@ -2,7 +2,7 @@
 
 # Stopping Criteria
 # if cluster score < worst / 5 and last move caused an increase in cluster score
-	# perform #hosts / 2 extra moves
+# perform (num_hosts) / 2 extra moves
 
 # Due to insecure SSL warnings in embedded urllib3 inside requests.
 import requests
@@ -18,8 +18,8 @@ import concurrent.futures
 
 # Weights used for calculating statistical scores
 # for balancing load. Default to 50/50.
-CPU_WEIGHT = 0.75
-MEM_WEIGHT = 0.15
+CPU_WEIGHT = 0.50
+MEM_WEIGHT = 0.50
 
 class ProxmoxBalancer:
 
@@ -57,7 +57,6 @@ class ProxmoxBalancer:
 		self.nodes = [ x['name'] for x in self.proxmox_client.getClusterStatus()['data'] if x['type'] == 'node']
 
 		# grab the CPU Load (15m) and Memory used percentage for each host.
-		# TODO: Thread this bit
 		self.node_stats = {}
 		
 		with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.nodes)) as executor:
@@ -90,15 +89,14 @@ class ProxmoxBalancer:
 
 		logging.info("Current cluster score: %f", current_balance)
 		self.cluster_score = current_balance
-		# TODO: fix this
-		return current_balance
+		
+                return current_balance
 
 
 
 	# Calculate a Z-Score (normalisation) for each host and choose the worst to migrate a VM from.
 	def calculate_node_scores(self):
-		# Z-Score
-		# value - mean(cpu) / stddev
+		# Z-Score = value - mean(cpu) / stddev
 		node_scores = {}
 
 		for key,value in self.node_stats.iteritems():
@@ -117,14 +115,13 @@ class ProxmoxBalancer:
 		return (cpu, mem)
 
 	def vms_to_migrate(self, candidate_vms):
-		# Worst possible score
-		# sqrt(#nodes-1)
+		# Worst possible score =  sqrt(num_nodes-1)
 		# when score > worst / 3, move 3 VMs at a time
 		# when score > worst / 5, move 2 VMs at a time
 		# else, move 1 VM.
 
 		worst_score = math.sqrt(len(self.nodes) - 1)
-		num = 1
+		num = 1 # backstop
 
 		if self.cluster_score > (worst_score / 3.0):
 			num =  3
@@ -135,23 +132,23 @@ class ProxmoxBalancer:
 				num =  1
 
 		# return that number either side of the median, prefering the lower end.
-		media_vm_index = len(candidate_vms) / 2
+		median_vm_index = len(candidate_vms) / 2
 
 		# return just one VM.
 		if num == 1:
-			return [candidate_vms[media_vm_index]] #integer division.
+			return [candidate_vms[median_vm_index]] # pick the median (ish) VM.
 		# return two VM ids.
-		if num == 2:
+		if num == 2
 			#incase there is only two VMs left.
 			if len(candidate_vms) <= 2:
-				return candidate_vms[media_vm_index]
+				return candidate_vms[median_vm_index]
 			else:
-				return [candidate_vms[media_vm_index-1], candidate_vms[media_vm_index]]
+				return [candidate_vms[median_vm_index-1], candidate_vms[median_vm_index]]
 		if num == 3:
 			if len(candidate_vms) < 3:
-				return candidate_vms[media_vm_index]
+				return candidate_vms[median_vm_index]
 			else:
-				return [candidate_vms[media_vm_index-1], candidate_vms[media_vm_index], candidate_vms[media_vm_index+1]]
+				return [candidate_vms[median_vm_index-1], candidate_vms[median_vm_index], candidate_vms[median_vm_index+1]]
 
 
 	def select_vms_to_migrate(self, node, cluster_score):
@@ -235,8 +232,7 @@ class ProxmoxBalancer:
 		
 		return True
 
-
-	#TODO: make this responsive to current cluster load
+        # Parent function to control Ghetto DRS
 	def balance_cluster(self):
 
 		for i in range(0,100):
@@ -274,15 +270,14 @@ class ProxmoxBalancer:
 
 if __name__ == "__main__":	
 
+	parser = argparse.ArgumentParser(description='Ghetto DRS - Warning, I really mean Ghetto... YMMV.')
+	parser.add_argument('-u', metavar='proxmox_user', dest='proxmox_user',  help="Username for the proxmox host including domain e.g. root@pam.")
+	parser.add_argument('-p', metavar='proxmox_password', dest='proxmox_password',  help="Password for the proxmox host.")
+	parser.add_argument('-h', metavar='proxmox_host', dest='proxmox_host',  help="Proxmox Host DNS name or IP address.")
+
+	args = parser.parse_args()
+
 	logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 	balancer = ProxmoxBalancer()
-	balancer.authenticate('172.16.50.2', 'root@pam', 'nomnomnom')
+	balancer.authenticate(args.proxmox_host, args.proxmox_user, args.proxmox_password)
 	balancer.balance_cluster()
-	#print(balancer.getNextNodePlacement())
-
-
-
-
-
-
-

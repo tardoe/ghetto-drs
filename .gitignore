@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Logging / testing
+*.log.*
+*.csv
+
+
 # Distribution / packaging
 .Python
 env/
@@ -87,3 +92,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Visual Studio Code
+.vscode/
