@@ -15,6 +15,7 @@ import numpy
 from operator import itemgetter
 import time, math, logging
 import concurrent.futures
+import argparse
 
 # Weights used for calculating statistical scores
 # for balancing load. Default to 50/50.
@@ -138,7 +139,7 @@ class ProxmoxBalancer:
 		if num == 1:
 			return [candidate_vms[median_vm_index]] # pick the median (ish) VM.
 		# return two VM ids.
-		if num == 2
+		if num == 2:
 			#incase there is only two VMs left.
 			if len(candidate_vms) <= 2:
 				return candidate_vms[median_vm_index]
@@ -225,7 +226,6 @@ class ProxmoxBalancer:
 				except Exception as exc:
 					print('VM Failed to move! %s', exc)
 
-			print(results)
 			for r in results:
 				if not r:
 					return False
@@ -273,7 +273,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Ghetto DRS - Warning, I really mean Ghetto... YMMV.')
 	parser.add_argument('-u', metavar='proxmox_user', dest='proxmox_user',  help="Username for the proxmox host including domain e.g. root@pam.")
 	parser.add_argument('-p', metavar='proxmox_password', dest='proxmox_password',  help="Password for the proxmox host.")
-	parser.add_argument('-h', metavar='proxmox_host', dest='proxmox_host',  help="Proxmox Host DNS name or IP address.")
+	parser.add_argument('-H', metavar='proxmox_host', dest='proxmox_host',  help="Proxmox Host DNS name or IP address.")
 
 	args = parser.parse_args()
 
